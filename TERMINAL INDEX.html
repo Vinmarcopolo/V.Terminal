@@ -1,0 +1,841 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>V.TERMINAL</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=Barlow+Condensed:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+/* Layout: dense terminal grid on graphite. Quiet by design: one champagne accent, muted market colours, no neon. Motion uses only transform and opacity so it stays on the GPU. */
+:root{
+  --bg:#ebe8e1;
+  --panel:rgba(246,244,239,.94);
+  --line:#d4cfc4;
+  --fg:#1c1e22;
+  --dim:#66655f;
+  --amber:#76602c;
+  --amber-bg:#efe9d9;
+  --up:#1d7650;
+  --down:#a63f39;
+  --info:#38587f;
+  --edge:rgba(118,96,44,.55);
+  --vig:rgba(0,0,0,.05);
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  --cond:'Barlow Condensed','Arial Narrow',Impact,sans-serif;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#090b0e; --panel:rgba(15,18,24,.9); --line:#1e232b; --fg:#e8e5de; --dim:#8b909a;
+    --amber:#cdb88a; --amber-bg:#14130f; --up:#62b890; --down:#d9736c; --info:#8ea7c8;
+    --edge:rgba(205,184,138,.5); --vig:rgba(0,0,0,.42);
+    color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#090b0e; --panel:rgba(15,18,24,.9); --line:#1e232b; --fg:#e8e5de; --dim:#8b909a;
+  --amber:#cdb88a; --amber-bg:#14130f; --up:#62b890; --down:#d9736c; --info:#8ea7c8;
+  --edge:rgba(205,184,138,.5); --vig:rgba(0,0,0,.42);
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  background:var(--bg);color:var(--fg);font-family:var(--mono);font-size:13px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  padding-block:0 40px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+body>:not(.fx):not(script){position:relative;z-index:1}
+a{color:var(--info);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--amber);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+.up{color:var(--up)}
+.down{color:var(--down)}
+.dim{color:var(--dim)}
+
+/* ambient: two static soft lights that drift slowly (transform only), light dust on a canvas, one static vignette */
+.fx{position:fixed;pointer-events:none;z-index:0}
+#amb{inset:0;width:100%;height:100%}
+.blob{width:60vmax;height:60vmax;border-radius:50%;opacity:.16;will-change:transform}
+.b1{left:-18vmax;top:-22vmax;background:radial-gradient(circle,var(--amber),transparent 62%);animation:drift1 40s ease-in-out infinite alternate}
+.b2{right:-20vmax;bottom:-26vmax;background:radial-gradient(circle,var(--info),transparent 62%);animation:drift2 48s ease-in-out infinite alternate}
+@keyframes drift1{to{transform:translate3d(14vmax,10vmax,0)}}
+@keyframes drift2{to{transform:translate3d(-12vmax,-8vmax,0)}}
+body::before{content:"";position:fixed;inset:0;pointer-events:none;z-index:3;background:radial-gradient(ellipse at 50% 30%,transparent 58%,var(--vig) 100%)}
+
+/* top bar */
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 24px;padding:14px 0 12px}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand b{font-family:var(--cond);font-weight:700;font-size:30px;letter-spacing:.18em;text-transform:uppercase;
+  background:linear-gradient(100deg,var(--amber) 0%,var(--amber) 38%,var(--fg) 50%,var(--amber) 62%,var(--amber) 100%);
+  background-size:260% 100%;-webkit-background-clip:text;background-clip:text;color:transparent;-webkit-text-fill-color:transparent;
+  animation:shine 9s ease-in-out infinite}
+.brand b::after{content:"_";-webkit-text-fill-color:var(--amber);color:var(--amber);animation:blink 1.2s steps(1) infinite}
+@keyframes shine{0%,100%{background-position:100% 0}50%{background-position:0 0}}
+@keyframes blink{50%{opacity:0}}
+.brand span{color:var(--dim);font-size:11px;letter-spacing:.04em}
+.sessions{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:11.5px;order:3;flex-basis:100%}
+.hdr-r{margin-left:auto}
+.sess{display:flex;align-items:center;gap:6px;white-space:nowrap}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+.dot.on{background:var(--up);animation:fade 3s ease-in-out infinite}
+.hdr-r{display:flex;align-items:center;gap:12px}
+.clk{font-family:var(--cond);font-weight:600;font-size:24px;letter-spacing:.08em;color:var(--fg)}
+.tbtn{background:none;border:1px solid var(--line);color:var(--dim);font:inherit;font-size:11px;padding:3px 10px;cursor:pointer;letter-spacing:.06em;text-transform:uppercase;transition:color .2s ease,border-color .2s ease}
+.tbtn:hover{color:var(--amber);border-color:var(--amber)}
+.secbar{height:2px;background:var(--line);position:relative;overflow:hidden}
+.secbar i{position:absolute;inset:0;background:var(--amber);transform:scaleX(0);transform-origin:left;transition:transform 1s linear}
+
+/* data age strip */
+.age{display:flex;flex-wrap:wrap;gap:4px 18px;padding:8px 10px;margin-top:12px;background:var(--amber-bg);border-left:2px solid var(--amber);font-size:12px;position:relative;overflow:hidden}
+.age::after{content:"";position:absolute;top:0;bottom:0;left:0;width:100%;background:linear-gradient(90deg,transparent,color-mix(in srgb,var(--amber) 16%,transparent),transparent);transform:translateX(-100%);animation:sweep 8s ease-in-out infinite;pointer-events:none;will-change:transform}
+.age b{color:var(--amber);font-weight:700;letter-spacing:.08em;display:inline-flex;align-items:center;gap:8px}
+.cd{color:var(--dim)}
+.led{width:8px;height:8px;border-radius:50%;background:var(--amber);flex:none;animation:fade 2.6s ease-in-out infinite}
+@keyframes fade{50%{opacity:.35}}
+@keyframes sweep{to{transform:translateX(100%)}}
+
+/* tape: edge fades are static overlays, so the moving strip is never masked */
+.tape-wrap{position:relative;margin-top:12px;border-block:1px solid var(--line)}
+.tape-wrap::before,.tape-wrap::after{content:"";position:absolute;top:0;bottom:0;width:8%;z-index:2;pointer-events:none}
+.tape-wrap::before{left:0;background:linear-gradient(90deg,var(--bg),transparent)}
+.tape-wrap::after{right:0;background:linear-gradient(270deg,var(--bg),transparent)}
+.tape{overflow:hidden;white-space:nowrap}
+.tape-track{display:inline-flex;gap:0;padding:8px 0;animation:roll 100s linear infinite;will-change:transform}
+.tape:hover .tape-track{animation-play-state:paused}
+.tk{display:inline-flex;gap:8px;align-items:center}
+.tk::after{content:"";width:4px;height:4px;background:var(--amber);transform:rotate(45deg);margin:0 22px;opacity:.5}
+.tk i{font-style:normal;color:var(--dim)}
+@keyframes roll{to{transform:translate3d(-50%,0,0)}}
+
+/* grid + panels: solid, hairline top highlight, no blur, no animated borders */
+.grid{display:grid;grid-template-columns:repeat(12,minmax(0,1fr));gap:14px;margin-top:14px}
+.p{position:relative;background:var(--panel);border:1px solid var(--line);min-width:0;transition:border-color .25s ease;animation:rise .6s cubic-bezier(.2,.8,.2,1) backwards}
+.p:hover{border-color:color-mix(in srgb,var(--amber) 40%,var(--line))}
+.p::before{content:"";position:absolute;left:0;right:0;top:-1px;height:1px;pointer-events:none;background:linear-gradient(90deg,transparent,var(--edge),transparent)}
+@keyframes rise{from{opacity:0;transform:translate3d(0,10px,0)}to{opacity:1;transform:none}}
+.grid>.p:nth-child(1){animation-delay:.05s}
+.grid>.p:nth-child(2){animation-delay:.11s}
+.grid>.p:nth-child(3){animation-delay:.17s}
+.grid>.p:nth-child(4){animation-delay:.23s}
+.grid>.p:nth-child(5){animation-delay:.29s}
+.grid>.p:nth-child(6){animation-delay:.35s}
+.grid>.p:nth-child(n+7){animation-delay:.41s}
+.p>h2{margin:0;padding:9px 12px;border-bottom:1px solid var(--line);font-family:var(--cond);font-weight:600;font-size:15px;letter-spacing:.16em;text-transform:uppercase;color:var(--amber);display:flex;align-items:baseline;gap:10px}
+.p>h2::before{content:"";width:5px;height:5px;background:var(--amber);align-self:center;flex:none}
+.p>h2 small{margin-left:auto;font-family:var(--mono);font-size:10.5px;letter-spacing:.02em;color:var(--dim);text-transform:none;font-weight:400;text-align:right}
+.body{padding:10px 12px}
+.s7{grid-column:span 7}.s5{grid-column:span 5}.s12{grid-column:span 12}.s6{grid-column:span 6}
+@media (max-width:900px){.s7,.s5,.s6{grid-column:span 12}}
+
+/* row reveal (JS sets --i), plays once, ends fully visible */
+@keyframes slide{from{opacity:0;transform:translate3d(-8px,0,0)}to{opacity:1;transform:none}}
+.stg{animation:slide .5s cubic-bezier(.2,.8,.2,1) backwards;animation-delay:calc(min(var(--i,0),12) * 45ms + .3s)}
+
+/* markets table */
+.scroll{overflow-x:auto}
+table{width:100%;border-collapse:collapse;min-width:420px}
+th{font-weight:400;color:var(--dim);font-size:10.5px;letter-spacing:.08em;text-transform:uppercase;text-align:right;padding:4px 8px;border-bottom:1px solid var(--line)}
+th:first-child,td:first-child{text-align:left}
+td{padding:6px 8px;text-align:right;border-bottom:1px solid var(--line);white-space:nowrap}
+tr:last-child td{border-bottom:none}
+td.nm{color:var(--fg);font-weight:500}
+tbody tr:hover td{background:color-mix(in srgb,var(--amber) 7%,transparent)}
+.dv{position:relative;height:5px;width:90px;display:inline-block;vertical-align:middle;background:linear-gradient(var(--line),var(--line)) center/1px 100% no-repeat}
+.dv i{position:absolute;top:0;height:100%;transition:width .9s cubic-bezier(.2,.8,.2,1)}
+.dv i.pos{left:50%;background:var(--up)}
+.dv i.neg{right:50%;background:var(--down)}
+.js-grow .dv i{width:0 !important}
+.js-grow .wk div i{height:2px !important}
+
+/* sectors */
+.sec{display:grid;grid-template-columns:1fr auto auto;gap:6px 12px;align-items:center}
+.sec .l{white-space:nowrap}
+
+/* retail vs institutions */
+.duel{display:grid;grid-template-columns:1fr 1fr;gap:0}
+.side{padding:12px;min-width:0}
+.side+.side{border-left:1px solid var(--line)}
+.side h3{margin:0 0 8px;font-family:var(--cond);font-size:24px;letter-spacing:.16em;font-weight:700;text-transform:uppercase}
+.side.r h3{color:var(--info)}
+.side.i h3{color:var(--amber)}
+.row{display:grid;grid-template-columns:1fr auto;gap:2px 14px;padding:7px 4px;border-bottom:1px dashed var(--line)}
+.row:last-of-type{border-bottom:none}
+.row:hover{background:color-mix(in srgb,var(--amber) 6%,transparent)}
+.row .v{font-weight:700;text-align:right}
+.row .src{grid-column:1 / -1;color:var(--dim);font-size:11px}
+.wk{display:flex;align-items:flex-end;gap:10px;height:64px;margin:10px 0 2px}
+.wk div{flex:1;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;font-size:10.5px;color:var(--dim);height:100%}
+.wk div i{display:block;width:100%;min-height:2px;background:var(--info);transition:height .9s cubic-bezier(.2,.8,.2,1)}
+.read{border-top:1px solid var(--line);padding:12px;background:var(--amber-bg)}
+.read b{color:var(--amber);letter-spacing:.1em}
+.read p{margin:6px 0 0;max-width:110ch}
+.read .cav{color:var(--dim);font-size:11.5px}
+@media (max-width:720px){.duel{grid-template-columns:1fr}.side+.side{border-left:none;border-top:1px solid var(--line)}}
+
+/* risk list */
+.rk{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:9px 4px;border-bottom:1px solid var(--line)}
+.rk:last-child{border-bottom:none}
+.rk:hover{background:color-mix(in srgb,var(--amber) 5%,transparent)}
+.pill{font-size:10px;font-weight:700;letter-spacing:.1em;padding:2px 7px;border:1px solid;align-self:start;text-align:center;min-width:66px}
+.pill.HIGH{color:var(--down);animation:fade 2.6s ease-in-out infinite}
+.pill.ELEVATED{color:var(--amber)}
+.pill.WATCH{color:var(--info)}
+.rk h4{margin:0;font-size:13px;font-weight:700}
+.rk p{margin:2px 0 0;color:var(--dim);grid-column:2}
+.kv{display:grid;grid-template-columns:1fr auto;gap:5px 12px}
+.kv .src{grid-column:1/-1;color:var(--dim);font-size:11px;margin-top:-3px}
+.feed{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px}
+
+/* news */
+.nw{padding:8px 4px;border-bottom:1px solid var(--line)}
+.nw:last-child{border-bottom:none}
+.nw:hover{background:color-mix(in srgb,var(--amber) 5%,transparent)}
+.nw .m{color:var(--dim);font-size:11px}
+.nw .t{font-weight:500}
+
+/* command line */
+.cli{padding:10px 12px}
+#out{max-height:340px;overflow-y:auto;white-space:pre-wrap;word-break:break-word;margin-bottom:10px}
+#out .ln{margin:0 0 8px}
+#out .q{color:var(--amber)}
+#out .e{color:var(--down)}
+#out .d{color:var(--dim)}
+.cmdrow{display:flex;gap:8px;align-items:center;border:1px solid var(--line);padding:6px 10px;background:color-mix(in srgb,var(--bg) 70%,transparent);transition:border-color .2s ease}
+.cmdrow label{color:var(--amber);font-weight:700}
+#cmd{flex:1;min-width:0;background:none;border:none;color:var(--fg);font:inherit;font-size:14px;outline:none;caret-color:var(--amber)}
+.cmdrow:focus-within{border-color:var(--amber)}
+.hints{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.hints button{background:none;border:1px solid var(--line);color:var(--dim);font:inherit;font-size:11px;padding:2px 9px;cursor:pointer;transition:color .2s ease,border-color .2s ease}
+.hints button:hover{color:var(--amber);border-color:var(--amber)}
+
+.src-list{margin:0;padding:0;list-style:none;display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:4px 18px;font-size:11.5px}
+.foot{color:var(--dim);font-size:11.5px;margin-top:10px;max-width:120ch}
+
+@media (prefers-reduced-motion: reduce){
+  html{scroll-behavior:auto}
+  *,*::before,*::after{animation:none !important;transition:none !important}
+  .tape{overflow-x:auto}
+}
+</style>
+<div class="fx blob b1" aria-hidden="true"></div>
+<div class="fx blob b2" aria-hidden="true"></div>
+<canvas class="fx" id="amb" aria-hidden="true"></canvas>
+
+<div class="bar">
+  <div class="brand"><b>V.TERMINAL</b><span>markets · world risk · who is buying</span></div>
+  <div class="sessions" id="sessions" aria-label="Market sessions"></div>
+  <div class="hdr-r"><span class="clk num" id="clk" aria-label="Jakarta time">--:--:--</span><button class="tbtn" id="themeBtn" type="button">Theme</button></div>
+</div>
+
+<div class="secbar" aria-hidden="true"><i id="secfill"></i></div>
+<div class="age" id="age"></div>
+<div class="tape-wrap" aria-hidden="true"><div class="tape"><div class="tape-track" id="tape"></div></div></div>
+
+<main class="grid">
+  <section class="p s7">
+    <h2>Markets <small>US close · Fri 16 Oct 2026</small></h2>
+    <div class="scroll"><table>
+      <thead><tr><th>Instrument</th><th>Last</th><th>Day</th><th></th><th>YTD</th></tr></thead>
+      <tbody id="mk"></tbody>
+    </table></div>
+  </section>
+
+  <section class="p s5">
+    <h2>Sectors <small>S&amp;P sector ETFs · Fri 16 Oct</small></h2>
+    <div class="body"><div class="sec" id="sec"></div></div>
+  </section>
+
+  <section class="p s12">
+    <h2>Retail vs institutions <small>who is buying what, this week</small></h2>
+    <div class="duel">
+      <div class="side r"><h3>Retail</h3><div id="retail"></div></div>
+      <div class="side i"><h3>Institutions</h3><div id="inst"></div></div>
+    </div>
+    <div class="read" id="read"></div>
+  </section>
+
+  <section class="p s7">
+    <h2>World risk <small>what is moving markets</small></h2>
+    <div class="body" id="risk"></div>
+  </section>
+
+  <section class="p s5">
+    <h2>Crypto <small>week of 12–16 Oct</small></h2>
+    <div class="body"><div class="kv" id="crypto"></div></div>
+  </section>
+
+  <section class="p s7">
+    <h2>News tape <small>newest first</small></h2>
+    <div class="body" id="news"></div>
+  </section>
+
+  <section class="p s5">
+    <h2>Week in one screen <small>12–16 Oct</small></h2>
+    <div class="body"><div class="kv" id="week"></div></div>
+  </section>
+
+  <section class="p s12">
+    <h2>Feed status <small>why this is a snapshot and how it goes live</small></h2>
+    <div class="body">
+      <div class="feed"><span class="led"></span><b>FEED: SNAPSHOT</b><span class="dim">figures do not tick; the motion on this page is layout and clocks only, never invented prices</span></div>
+      <div class="kv" style="margin-top:10px">
+        <span>Refresh today</span><span class="num">on request</span>
+        <span class="src">Ask Claude in chat to refresh V.TERMINAL. It re-pulls the sources and replaces this snapshot.</span>
+        <span>Real live prices</span><span class="num">needs a connector</span>
+        <span class="src">Connect a market-data connector (Twelve Data or Alpha Vantage) in Claude, then ask Claude to wire V.TERMINAL live. The page would then re-read quotes on your account about every 30 seconds while it is open.</span>
+        <span>Automatic daily refresh</span><span class="num">paid plan</span>
+        <span class="src">Scheduled tasks are not part of the free plan, so nothing refreshes while the page is closed.</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="p s12">
+    <h2>Command line <small>type help</small></h2>
+    <div class="cli">
+      <div id="out" aria-live="polite"></div>
+      <form class="cmdrow" id="cmdForm" autocomplete="off">
+        <label for="cmd">&gt;</label>
+        <input id="cmd" type="text" spellcheck="false" placeholder="idx · sectors · flows · risk · news · or ask a question">
+      </form>
+      <div class="hints" id="hints"></div>
+    </div>
+  </section>
+
+  <section class="p s12">
+    <h2>Sources</h2>
+    <div class="body">
+      <ul class="src-list" id="srcs"></ul>
+      <p class="foot">This page is a dated snapshot. Browsers cannot pull live quotes from inside a published page, so the figures are the last values found on the dates shown and do not tick. Ask Claude to refresh it and a new snapshot replaces this one. Flow figures come from a few data providers each covering only part of the market (see the caveat under Retail vs institutions). Information only, not investment advice.</p>
+    </div>
+  </section>
+</main>
+
+<script>
+(function(){
+  "use strict";
+
+  /* ---------- snapshot data (every figure is from the linked source and date) ---------- */
+  var CLOSE_UTC = "2026-10-16T20:00:00Z"; // Friday US cash close, 4pm New York
+  var DATA = {
+    asOf: "Friday 16 October 2026 US close; weekly and flow items cover 12-16 Oct unless dated otherwise",
+    markets: [
+      {n:"S&P 500", v:7659.44, d:-1.09, y:11.68, f:2},
+      {n:"Nasdaq Composite", v:26140.03, d:-2.15, y:12.50, f:2},
+      {n:"Dow Jones", v:52002.41, d:-0.34, y:7.48, f:2},
+      {n:"Russell 2000", v:2721.37, d:-1.66, y:8.50, f:2},
+      {n:"VIX", v:19.99, d:21.45, y:null, f:2},
+      {n:"US 10-yr yield %", v:5.10, d:0.18, y:null, f:2},
+      {n:"US Dollar Index", v:101.78, d:-0.22, y:null, f:2},
+      {n:"WTI crude $", v:99.04, d:1.09, y:null, f:2},
+      {n:"Gold $", v:4186.70, d:0.40, y:null, f:2}
+    ],
+    sectors: [
+      {n:"Energy", d:2.52, y:49.49},
+      {n:"Utilities", d:1.34, y:-2.25},
+      {n:"Cons. Staples", d:1.08, y:12.78},
+      {n:"Materials", d:0.71, y:10.41},
+      {n:"Financials", d:0.45, y:1.07},
+      {n:"Real Estate", d:0.40, y:4.41},
+      {n:"Industrials", d:-0.08, y:6.19},
+      {n:"Health Care", d:-0.27, y:13.63},
+      {n:"Cons. Discr.", d:-0.84, y:-4.98},
+      {n:"Comm. Services", d:-1.89, y:-5.63},
+      {n:"Technology", d:-3.02, y:27.14}
+    ],
+    retail: [
+      {l:"Net US equity buying, week to 11 Oct", v:"$9.1B", s:"Highest in 15 weeks. Citadel Securities, via Coinpaper, 18 Oct"},
+      {l:"Into semiconductors", v:"$2.6B", s:"Same week. Citadel Securities"},
+      {l:"Into AI infrastructure stocks", v:"$2.4B", s:"Same week. Citadel Securities"},
+      {l:"Into neocloud names (CoreWeave, Nebius, IREN)", v:"$0.7B", s:"Largest weekly accumulation in Citadel's data. CoreWeave then fell 22%+"},
+      {l:"SOXL (3x semiconductor ETF) inflow, Mon-Thu", v:"~$3.9B", s:"Record weekly inflow while the fund lost about a fifth. Atrani Capital recap, 12-16 Oct"}
+    ],
+    retailWeeks: [{w:"Wk 1", v:4.8},{w:"Wk 2", v:6.4},{w:"Wk 3", v:9.1}],
+    inst: [
+      {l:"Hedge funds on global AI stocks", v:"Net sellers", s:"Five straight sessions to 15 Oct, erasing all net buying since start of 2025. Goldman prime brokerage, via Atrani Capital"},
+      {l:"Long sales vs short sales", v:"3.5 : 1", s:"Goldman reads it as liquidation of longs, not new shorts"},
+      {l:"Global stock-picker funds, week to 15 Oct", v:"-2.9%", s:"Still +14.3% year to date. Goldman PB, via Reuters, 18 Oct"},
+      {l:"Money-market fund inflows", v:"$166.4B", s:"Largest weekly inflow since April 2020. Treasuries took $16.2B. Atrani Capital"},
+      {l:"Vanda Research on institutions", v:"Buyers' strike", s:"Cited across hedge fund exposure and options activity. Via Coinpaper, 18 Oct"}
+    ],
+    read: "Retail kept buying the AI and semiconductor drop, including leveraged funds, while hedge funds sold the same theme and money moved into cash funds. The two groups were on opposite sides of the semiconductor selloff, and the Philadelphia Semiconductor Index fell eight sessions in a row over the week.",
+    caveat: "Caveat: Citadel's figure covers only trading it can see and ends 11 Oct, before the selloff week. SOXL flows are one product, not all retail. Goldman's data covers its own prime-brokerage clients. Pension funds, mutual funds and other institutions are not in these numbers, and Vanda notes institutions are not uniformly bearish.",
+    risk: [
+      {sev:"HIGH", t:"Gulf and Strait of Hormuz", p:"Renewed attacks around the Strait lifted oil: Brent near $110 (+~5% on the week), WTI +10.9%. In September Houthi strikes on Saudi Arabia's East-West pipeline halted loadings at Yanbu."},
+      {sev:"HIGH", t:"Inflation and rate hikes", p:"September CPI 3.7% y/y (0.6% m/m) vs 3.6% expected; PPI 6.3% y/y. The Fed raised to 3.75-4% in September. Markets price about three more hikes; the 30-yr yield is 5.4%."},
+      {sev:"HIGH", t:"AI financing stress", p:"CoreWeave 2032 bonds near 78 cents, CDS implying over 60% five-year default odds, bond yields above 15%. FT reported OpenAI revenue $20B below what it signalled and its IPO pushed into next year."},
+      {sev:"ELEVATED", t:"Asian equities", p:"Kospi fell 8% on Thursday to a six-month low. Week: emerging markets -5.7%, South Korea -15.1%, Taiwan -7.0%, Japan -3.1%."},
+      {sev:"ELEVATED", t:"Fuel prices", p:"US pump price averages $6.17 a gallon, near September's record above $6.50. Distillate stocks are the lowest for the season on record."},
+      {sev:"WATCH", t:"Europe politics and spreads", p:"French 10-yr spread over bunds 139.1 bp amid student protests and budget pressure; Germany's AfD leads national polls at 29%. European stocks still beat US stocks on the week (Stoxx 600 +2.1%)."},
+      {sev:"WATCH", t:"US fiscal position", p:"FY2026 federal deficit finished at $1.99 trillion per the Treasury's final monthly statement."}
+    ],
+    crypto: [
+      {l:"Bitcoin, week", v:"-0.9%", s:"Briefly traded below $80,000 on Thursday"},
+      {l:"Spot BTC ETF flows, week", v:"-$228M", s:"After -$679M the week before"},
+      {l:"7-8 Oct ETF outflows", v:"-$729M", s:"Oct 7: -$484.9M (IBIT -$207.7M). Oct 8: -$244.1M"},
+      {l:"Altcoins ex-BTC, week", v:"-2.4%", s:"XRP, Dogecoin, Cardano each -5% to -6%"},
+      {l:"Odds of $100k by Christmas", v:"9.7%", s:"Derive.xyz market-implied"}
+    ],
+    news: [
+      {t:"Hedge funds slide as AI bets unwind worldwide", m:"Reuters via Business Day · 18 Oct", u:"https://www.businessday.co.za/world/international-companies/2026-10-18-hedge-funds-slide-as-ai-bets-unwind-worldwide/"},
+      {t:"Retail pours record $700M into neocloud stocks as institutions turn defensive", m:"Coinpaper citing Citadel Securities and Vanda · 18 Oct", u:"https://coinpaper.com/37485/retail-traders-pour-record-700m-into-ai-cloud-stocks-while-wall-street-grows-wary-of-debt-risks"},
+      {t:"Week 42 market update: S&P 500 -2.0% on narrow AI selloff, Fear & Greed drops to 18", m:"Atrani Capital · 12-16 Oct", u:"https://atranicapital.substack.com/p/week-42-market-update-for-october-e67"},
+      {t:"Tech slides, energy surges as VIX jumps 21%", m:"Tapeboard · 16 Oct", u:"https://tapeboard.com/blog/market-pulse-2026-10-16"},
+      {t:"Russell 2000 and Dow lead as Nasdaq stalls", m:"Tapeboard · 15 Oct", u:"https://tapeboard.com/blog/market-pulse-2026-10-15"},
+      {t:"Bitcoin spot ETFs see $729M outflows over two days", m:"Digital Today · 12 Oct", u:"https://www.digitaltoday.co.kr/en/view/112969/bitcoin-spot-etfs-see-outflows-729-million-dollars-over-two-days"}
+    ],
+    week: [
+      {l:"S&P 500", v:"-2.0%", s:"Worst week since June"},
+      {l:"Nasdaq Composite", v:"-4.5%", s:"Nasdaq 100: steepest weekly drop since April 2025"},
+      {l:"S&P equal-weight", v:"+0.5%", s:"The damage was narrow"},
+      {l:"Tech sector", v:"-7.7%", s:"Semiconductor index about 24% below its June peak"},
+      {l:"CNN Fear & Greed", v:"18", s:"Down from 45; Extreme Fear"},
+      {l:"Q3 earnings so far", v:"84.4% beat", s:"45 S&P companies; only 62.2% beat on sales"},
+      {l:"Fed hike odds, Oct meeting", v:"15.5%", s:"CME FedWatch"}
+    ],
+    sources: [
+      ["Tapeboard, market pulse 16 Oct","https://tapeboard.com/blog/market-pulse-2026-10-16"],
+      ["Tapeboard, market pulse 15 Oct","https://tapeboard.com/blog/market-pulse-2026-10-15"],
+      ["Atrani Capital, week 42 update","https://atranicapital.substack.com/p/week-42-market-update-for-october-e67"],
+      ["Reuters via Business Day, 18 Oct","https://www.businessday.co.za/world/international-companies/2026-10-18-hedge-funds-slide-as-ai-bets-unwind-worldwide/"],
+      ["Coinpaper, retail neocloud flows","https://coinpaper.com/37485/retail-traders-pour-record-700m-into-ai-cloud-stocks-while-wall-street-grows-wary-of-debt-risks"],
+      ["Digital Today, BTC ETF outflows","https://www.digitaltoday.co.kr/en/view/112969/bitcoin-spot-etfs-see-outflows-729-million-dollars-over-two-days"],
+      ["Stocktwits, 21 Sep (Fed hike, Houthi pipeline background)","https://stocktwits.com/news-articles/markets/equity/oil-near-100-treasury-yields-near-5-bitcoin-resilience-3-charts-to-watch-this-week/cZMROlYRB48"]
+    ]
+  };
+
+  var REDUCE = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  /* ---------- helpers ---------- */
+  function $(id){ return document.getElementById(id); }
+  function el(tag, cls, text){
+    var n = document.createElement(tag);
+    if(cls) n.className = cls;
+    if(text !== undefined && text !== null) n.textContent = text;
+    return n;
+  }
+  function fmt(v, f){
+    return v.toLocaleString("en-US", {minimumFractionDigits:f, maximumFractionDigits:f});
+  }
+  function sgn(v){ return (v > 0 ? "+" : v < 0 ? "−" : "") + fmt(Math.abs(v), 2) + "%"; }
+  function cls(v){ return v > 0 ? "up" : v < 0 ? "down" : "dim"; }
+  function dvBar(v, maxAbs, width){
+    var w = el("span","dv");
+    if(width){ w.style.width = width + "px"; }
+    var i = el("i", v >= 0 ? "pos" : "neg");
+    i.style.width = Math.min(50, Math.abs(v) / maxAbs * 50) + "%";
+    w.appendChild(i);
+    return w;
+  }
+
+  /* ---------- clocks and data age ---------- */
+  var SESS = [
+    {n:"New York", tz:"America/New_York", o:[9,30], c:[16,0]},
+    {n:"London", tz:"Europe/London", o:[8,0], c:[16,30]},
+    {n:"Tokyo", tz:"Asia/Tokyo", o:[9,0], c:[15,0]},
+    {n:"Jakarta", tz:"Asia/Jakarta", o:[9,0], c:[16,0]}
+  ];
+  function localParts(tz, d){
+    var p = new Intl.DateTimeFormat("en-GB", {timeZone:tz, weekday:"short", hour:"2-digit", minute:"2-digit", hour12:false}).formatToParts(d);
+    var o = {};
+    p.forEach(function(x){ o[x.type] = x.value; });
+    return o;
+  }
+  function renderSessions(){
+    var box = $("sessions");
+    box.textContent = "";
+    var now = new Date();
+    SESS.forEach(function(s){
+      var p = localParts(s.tz, now);
+      var mins = parseInt(p.hour,10) * 60 + parseInt(p.minute,10);
+      var wk = ["Sat","Sun"].indexOf(p.weekday) === -1;
+      var open = wk && mins >= s.o[0]*60 + s.o[1] && mins < s.c[0]*60 + s.c[1];
+      var w = el("span","sess");
+      w.appendChild(el("span", "dot" + (open ? " on" : "")));
+      w.appendChild(el("span","", s.n + " " + p.hour + ":" + p.minute + (open ? " open" : " closed")));
+      box.appendChild(w);
+    });
+  }
+  var DAYS = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"];
+  function nyCountdown(){
+    var p = localParts("America/New_York", new Date());
+    var di = DAYS.indexOf(p.weekday);
+    var cur = parseInt(p.hour,10) * 60 + parseInt(p.minute,10);
+    var o = 9*60 + 30, c = 16*60;
+    var wk = di >= 1 && di <= 5;
+    var mins, label;
+    if(wk && cur >= o && cur < c){ mins = c - cur; label = "US cash market closes in "; }
+    else{
+      var ahead = (wk && cur < o) ? 0 : (di === 5 ? 3 : di === 6 ? 2 : 1);
+      mins = ahead * 1440 + o - cur;
+      if(wk && cur >= c){ mins = 1440 * (di === 5 ? 3 : 1) + o - cur; }
+      label = "US cash market opens in ";
+    }
+    var h = Math.floor(mins / 60), m = mins % 60;
+    return label + (h >= 24 ? Math.floor(h / 24) + "d " + (h % 24) + "h " : h + "h ") + m + "m";
+  }
+  function renderAge(){
+    var box = $("age");
+    var ms = Date.now() - new Date(CLOSE_UTC).getTime();
+    var h = Math.max(0, Math.floor(ms / 3600000));
+    var d = Math.floor(h / 24);
+    var txt = d > 0 ? d + "d " + (h % 24) + "h" : h + "h";
+    box.textContent = "";
+    var b = el("b");
+    b.appendChild(el("span","led"));
+    b.appendChild(document.createTextNode("SNAPSHOT"));
+    box.appendChild(b);
+    box.appendChild(el("span","","Prices are from the Fri 16 Oct US close, " + txt + " ago. Compiled 19 Oct 2026."));
+    box.appendChild(el("span","cd",nyCountdown() + " (approx.)"));
+  }
+  function renderClock(){
+    var now = new Date();
+    $("clk").textContent = now.toLocaleTimeString("en-GB", {timeZone:"Asia/Jakarta", hour12:false}) + " WIB";
+    var f = $("secfill"), s = now.getSeconds();
+    if(f){
+      if(s === 0){
+        f.style.transition = "none"; f.style.transform = "scaleX(0)";
+        void f.offsetWidth;
+        f.style.transition = "";
+      }
+      f.style.transform = "scaleX(" + ((s + 1) / 60) + ")";
+    }
+  }
+  renderSessions(); renderAge(); renderClock();
+  setInterval(renderClock, 1000);
+  setInterval(function(){ renderSessions(); renderAge(); }, 30000);
+
+  /* ---------- tape ---------- */
+  (function(){
+    var items = DATA.markets.map(function(m){ return {n:m.n.replace(" $","").replace(" %",""), v:fmt(m.v, m.f), d:m.d}; });
+    var track = $("tape");
+    for(var k = 0; k < 2; k++){
+      items.forEach(function(it){
+        var s = el("span","tk num");
+        s.appendChild(el("i","",it.n));
+        s.appendChild(el("span","",it.v));
+        s.appendChild(el("span", cls(it.d), sgn(it.d)));
+        track.appendChild(s);
+      });
+    }
+  })();
+
+  /* ---------- markets table ---------- */
+  (function(){
+    var body = $("mk");
+    var maxAbs = 3;
+    DATA.markets.forEach(function(m){
+      var tr = el("tr");
+      tr.appendChild(el("td","nm",m.n));
+      tr.appendChild(el("td","num",fmt(m.v, m.f)));
+      tr.appendChild(el("td","num " + cls(m.d), sgn(m.d)));
+      var tdBar = el("td"); tdBar.appendChild(dvBar(m.d, m.n === "VIX" ? 25 : maxAbs)); tr.appendChild(tdBar);
+      tr.appendChild(el("td","num " + (m.y === null ? "dim" : cls(m.y)), m.y === null ? "—" : sgn(m.y)));
+      body.appendChild(tr);
+    });
+  })();
+
+  /* ---------- sectors ---------- */
+  (function(){
+    var box = $("sec");
+    DATA.sectors.forEach(function(s){
+      box.appendChild(el("span","l",s.n));
+      var c = el("span"); c.appendChild(dvBar(s.d, 3.1, 110)); box.appendChild(c);
+      var v = el("span","num " + cls(s.d), sgn(s.d)); v.style.textAlign = "right"; box.appendChild(v);
+    });
+  })();
+
+  /* ---------- retail vs institutions ---------- */
+  function fillRows(id, rows){
+    var box = $(id);
+    rows.forEach(function(r){
+      var row = el("div","row");
+      row.appendChild(el("span","",r.l));
+      row.appendChild(el("span","v num",r.v));
+      row.appendChild(el("span","src",r.s));
+      box.appendChild(row);
+    });
+  }
+  fillRows("retail", DATA.retail);
+  fillRows("inst", DATA.inst);
+  (function(){
+    var box = $("retail");
+    var wk = el("div","wk");
+    wk.setAttribute("role","img");
+    wk.setAttribute("aria-label","Weekly retail net US equity buying in billions of dollars: 4.8, 6.4, 9.1");
+    DATA.retailWeeks.forEach(function(w){
+      var c = el("div");
+      c.appendChild(el("span","num","$" + w.v.toFixed(1) + "B"));
+      var b = el("i"); b.style.height = (w.v / 10 * 100) + "%";
+      c.appendChild(b);
+      c.appendChild(el("span","",w.w));
+      wk.appendChild(c);
+    });
+    box.appendChild(wk);
+    box.appendChild(el("div","src dim","Weekly retail net buying, three weeks to 11 Oct (Citadel Securities)"));
+    var r = $("read");
+    var b = el("b","","THE READ");
+    r.appendChild(b);
+    r.appendChild(el("p","",DATA.read));
+    r.appendChild(el("p","cav",DATA.caveat));
+  })();
+
+  /* ---------- risk, crypto, news, week, sources ---------- */
+  (function(){
+    var box = $("risk");
+    DATA.risk.forEach(function(r){
+      var row = el("div","rk");
+      row.appendChild(el("span","pill " + r.sev, r.sev));
+      row.appendChild(el("h4","",r.t));
+      row.appendChild(el("p","",r.p));
+      box.appendChild(row);
+    });
+    function kv(id, rows){
+      var b = $(id);
+      rows.forEach(function(r){
+        b.appendChild(el("span","",r.l));
+        b.appendChild(el("span","num " + (r.v.charAt(0) === "-" ? "down" : r.v.charAt(0) === "+" ? "up" : ""), r.v));
+        b.appendChild(el("span","src",r.s));
+      });
+    }
+    kv("crypto", DATA.crypto);
+    kv("week", DATA.week);
+    var nb = $("news");
+    DATA.news.forEach(function(n){
+      var d = el("div","nw");
+      var a = el("a","t",n.t); a.href = n.u; a.target = "_blank"; a.rel = "noopener";
+      d.appendChild(a);
+      d.appendChild(el("div","m",n.m));
+      nb.appendChild(d);
+    });
+    var sl = $("srcs");
+    DATA.sources.forEach(function(s){
+      var li = el("li");
+      var a = el("a","",s[0]); a.href = s[1]; a.target = "_blank"; a.rel = "noopener";
+      li.appendChild(a); sl.appendChild(li);
+    });
+  })();
+
+  /* ---------- theme ---------- */
+  $("themeBtn").addEventListener("click", function(){
+    var root = document.documentElement;
+    var dark = root.getAttribute("data-theme") === "dark" ||
+      (!root.getAttribute("data-theme") && window.matchMedia("(prefers-color-scheme: dark)").matches);
+    root.setAttribute("data-theme", dark ? "light" : "dark");
+  });
+
+  /* ---------- command line ---------- */
+  var out = $("out");
+  function say(text, kind){
+    var p = el("p","ln " + (kind || ""), text);
+    out.appendChild(p);
+    out.scrollTop = out.scrollHeight;
+    return p;
+  }
+  function pad(s, n){ s = String(s); while(s.length < n){ s += " "; } return s; }
+  var LOCAL = {
+    help: function(){
+      return "idx       indices and macro, last close\nsectors   sector moves, best to worst\nflows     retail vs institutions\nrisk      world risk list\ncrypto    bitcoin and ETF flows\nnews      headlines with sources\nclock     which exchanges are open\nrefresh   how to update or go live\ntheme     flip dark/light\nclear     wipe this screen\n\nAnything else is sent to Claude as a question about this snapshot, e.g. \"why did retail and hedge funds disagree on semis?\"";
+    },
+    idx: function(){
+      return DATA.markets.map(function(m){
+        return pad(m.n, 20) + pad(fmt(m.v, m.f), 11) + pad(sgn(m.d), 9) + (m.y === null ? "" : "YTD " + sgn(m.y));
+      }).join("\n");
+    },
+    sectors: function(){
+      return DATA.sectors.map(function(s){ return pad(s.n, 16) + pad(sgn(s.d), 9) + "YTD " + sgn(s.y); }).join("\n");
+    },
+    flows: function(){
+      var r = DATA.retail.map(function(x){ return "  " + pad(x.v, 12) + x.l; }).join("\n");
+      var i = DATA.inst.map(function(x){ return "  " + pad(x.v, 14) + x.l; }).join("\n");
+      return "RETAIL\n" + r + "\n\nINSTITUTIONS\n" + i + "\n\n" + DATA.read + "\n\n" + DATA.caveat;
+    },
+    risk: function(){
+      return DATA.risk.map(function(r){ return "[" + r.sev + "] " + r.t + "\n  " + r.p; }).join("\n\n");
+    },
+    crypto: function(){
+      return DATA.crypto.map(function(c){ return pad(c.v, 10) + c.l + " (" + c.s + ")"; }).join("\n");
+    },
+    news: function(){
+      return DATA.news.map(function(n){ return n.t + "\n  " + n.m; }).join("\n\n");
+    },
+    refresh: function(){
+      return "This page cannot pull new data by itself. To update it, tell Claude in chat: \"refresh V.TERMINAL\". For real live prices, connect Twelve Data or Alpha Vantage in Claude first, then ask Claude to wire the page to it.";
+    },
+    clock: function(){
+      var now = new Date();
+      return SESS.map(function(s){
+        var p = localParts(s.tz, now);
+        var mins = parseInt(p.hour,10) * 60 + parseInt(p.minute,10);
+        var wk = ["Sat","Sun"].indexOf(p.weekday) === -1;
+        var open = wk && mins >= s.o[0]*60 + s.o[1] && mins < s.c[0]*60 + s.c[1];
+        return pad(s.n, 10) + p.weekday + " " + p.hour + ":" + p.minute + "  " + (open ? "open" : "closed");
+      }).join("\n") + "\n\nApproximate hours; exchange holidays and lunch breaks are ignored.";
+    },
+    theme: function(){ $("themeBtn").click(); return "Theme flipped."; },
+    clear: function(){ out.textContent = ""; return null; }
+  };
+
+  var sampleFn, sampleChecked = false, busy = false;
+  function getSample(){
+    if(sampleChecked) return Promise.resolve(sampleFn);
+    sampleChecked = true;
+    try{
+      if(window.claude && typeof window.claude.use === "function"){
+        return window.claude.use("sample").then(function(s){ sampleFn = s; return s; }, function(){ return null; });
+      }
+    }catch(e){}
+    return Promise.resolve(null);
+  }
+  function ask(q){
+    if(busy) return;
+    busy = true;
+    var bubble = say("thinking...", "d");
+    getSample().then(function(sample){
+      if(!sample){
+        bubble.className = "ln e";
+        bubble.textContent = "Questions need Claude, and this view is not connected to it. The built-in commands (help) still work.";
+        busy = false; return null;
+      }
+      var prompt = "You answer questions on a market terminal. Use ONLY the snapshot below. If the snapshot does not cover the question, say so in one line. Write terse, plain text with no markdown, under 130 words. State the date basis when you quote figures. Do not give buy or sell advice. Do not invent numbers.\n\nSNAPSHOT:\n" + JSON.stringify(DATA) + "\n\nQUESTION: " + q;
+      return sample(prompt, {
+        cache:false,
+        modelTier:"default",
+        onText:function(t){ bubble.className = "ln"; bubble.textContent = t.text; out.scrollTop = out.scrollHeight; }
+      }).then(function(res){
+        if(res && res.text){ bubble.textContent = res.text; }
+        busy = false;
+      }, function(err){
+        bubble.className = "ln e";
+        bubble.textContent = (err && err.code === "rate_limited") ? "Rate limited. Wait a moment and ask again." :
+          (err && err.code === "not_granted") ? "Permission to ask Claude was declined for this page." :
+          "Claude did not answer. Try again.";
+        busy = false;
+      });
+    });
+  }
+  function run(line){
+    var raw = line.trim();
+    if(!raw) return;
+    say("> " + raw, "q");
+    var key = raw.toLowerCase();
+    if(LOCAL[key]){
+      var res = LOCAL[key]();
+      if(res !== null) say(res);
+      return;
+    }
+    ask(raw);
+  }
+  $("cmdForm").addEventListener("submit", function(e){
+    e.preventDefault();
+    var inp = $("cmd");
+    var v = inp.value;
+    inp.value = "";
+    run(v);
+  });
+  (function(){
+    var h = $("hints");
+    ["help","idx","sectors","flows","risk","crypto","news","clock","refresh"].forEach(function(c){
+      var b = el("button","",c); b.type = "button";
+      b.addEventListener("click", function(){ run(c); });
+      h.appendChild(b);
+    });
+    var q = el("button","","why did retail and hedge funds disagree?"); q.type = "button";
+    q.addEventListener("click", function(){ run("Why did retail and hedge funds disagree on semiconductors this week?"); });
+    h.appendChild(q);
+  })();
+  /* ---------- staggered reveal ---------- */
+  function stag(nodes, div){
+    Array.prototype.forEach.call(nodes, function(n, i){
+      n.style.setProperty("--i", Math.floor(i / (div || 1)));
+      n.classList.add("stg");
+    });
+  }
+  stag($("mk").children);
+  stag($("sec").children, 3);
+  stag(document.querySelectorAll("#retail .row"));
+  stag(document.querySelectorAll("#inst .row"));
+  stag($("risk").children);
+  stag($("news").children);
+  stag($("crypto").children, 3);
+  stag($("week").children, 3);
+
+  /* ---------- ambient dust: few specks, 30fps, paused when hidden (decoration only, carries no data) ---------- */
+  (function(){
+    var c = $("amb");
+    if(!c || !c.getContext) return;
+    var ctx = c.getContext("2d");
+    var W = 0, H = 0, pts = [], col = ["#cdb88a", "#8ea7c8"], last = 0, rt = 0;
+    function readColors(){
+      var s = getComputedStyle(document.documentElement);
+      col = [s.getPropertyValue("--amber").trim() || col[0], s.getPropertyValue("--info").trim() || col[1]];
+    }
+    function size(){
+      W = c.clientWidth; H = c.clientHeight;
+      c.width = Math.max(1, W); c.height = Math.max(1, H);
+      var n = Math.round(Math.min(34, (W * H) / 36000));
+      pts = [];
+      for(var i = 0; i < n; i++){
+        pts.push({x:Math.random() * W, y:Math.random() * H, vy:.05 + Math.random() * .16, vx:(Math.random() - .5) * .08, s:1 + (Math.random() < .25 ? 1 : 0), a:.18 + Math.random() * .4, c:Math.random() < .8 ? 0 : 1});
+      }
+    }
+    function draw(){
+      ctx.clearRect(0, 0, W, H);
+      for(var k = 0; k < 2; k++){
+        ctx.fillStyle = col[k];
+        for(var i = 0; i < pts.length; i++){
+          var p = pts[i];
+          if(p.c !== k) continue;
+          ctx.globalAlpha = p.a;
+          ctx.fillRect(p.x, p.y, p.s, p.s);
+        }
+      }
+      ctx.globalAlpha = 1;
+    }
+    function step(){
+      for(var i = 0; i < pts.length; i++){
+        var p = pts[i];
+        p.y -= p.vy; p.x += p.vx;
+        if(p.y < -3){ p.y = H + 3; p.x = Math.random() * W; }
+        if(p.x < -3) p.x = W + 3; else if(p.x > W + 3) p.x = -3;
+      }
+    }
+    function loop(t){
+      requestAnimationFrame(loop);
+      if(document.hidden || t - last < 33) return;
+      last = t;
+      step(); draw();
+    }
+    size(); readColors(); draw();
+    window.addEventListener("resize", function(){
+      clearTimeout(rt);
+      rt = setTimeout(function(){ size(); draw(); }, 200);
+    });
+    document.getElementById("themeBtn").addEventListener("click", function(){ setTimeout(function(){ readColors(); draw(); }, 80); });
+    if(!REDUCE) requestAnimationFrame(loop);
+  })();
+
+  /* ---------- opening line types itself out ---------- */
+  (function(){
+    var full = "V.TERMINAL ready. Snapshot as of Fri 16 Oct 2026 close. Type help.";
+    var p = say("", "d");
+    if(REDUCE){ p.textContent = full; return; }
+    var i = 0;
+    (function tick(){
+      p.textContent = full.slice(0, i) + (i < full.length ? "█" : "");
+      if(i++ < full.length) setTimeout(tick, 24);
+    })();
+  })();
+
+  /* bars grow from zero to their real value once, then everything is at rest */
+  (function(){
+    var b = document.body;
+    b.classList.add("js-grow");
+    void b.offsetWidth;
+    setTimeout(function(){ b.classList.remove("js-grow"); }, 80);
+  })();
+})();
+</script>
+
+</body></html>
